@@ -1,0 +1,73 @@
+version: "3.7"
+services:
+  mariadb:
+    image: "mariadb:10.3.17"
+    container_name: "mariadb-container"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+    volumes:
+      - ./mariadb/conf:/etc/mysql/conf.d
+      - ./mariadb/data:/var/lib/mysql 
+      - ./mariadb/scripts:/docker-entrypoint-initdb.d
+  php:
+    build: 
+      context: "./php"
+      dockerfile: "Dockerfile"
+    container_name: "php-container"
+    restart: always
+    volumes:
+      - ../www:/var/www/html
+    ports:
+      - "8888:80"
+    depends_on:
+      - mariadb
+    links:
+      - mariadb
+  nginx:
+    image: "nginx:1.16-alpine"
+    container_name: "nginx-container"
+    restart: always
+    volumes:
+      - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/logs/error.log:/etc/nginx/error_log.log
+      - ./nginx/cache:/etc/nginx/cache
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - mariadb
+    links:
+      - mariadb
+      - php
+  composer:
+    restart: "no"
+    image: "composer:1.7.2"
+    container_name: "composer-container"
+    command: install
+    volumes:
+      - ../app:/app
+  php-cli-cron:
+    build: 
+      context: "./php-cli-cron"
+      dockerfile: "Dockerfile"
+    container_name: "php-cli-cron-container"
+    restart: always
+    volumes:
+      - ../app:/app
+    depends_on:
+      - mariadb
+    links:
+      - mariadb
+  node-cron:
+    build: 
+      context: "./node-cron"
+      dockerfile: "Dockerfile"
+    container_name: "node-cron-container"
+    restart: always
+    volumes:
+      - ../node:/app
+    depends_on:
+      - mariadb
+    links:
+      - mariadb
